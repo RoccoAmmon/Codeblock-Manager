@@ -9,19 +9,15 @@ und dieses Projekt folgt der [Semantischen Versionierung](https://semver.org/lan
 
 ## [Unveröffentlicht]
 
-### Geplant
-- Optionaler Cursor-Sprung zur geänderten Funktion nach einem Import
-- Eigenes Icon für die EXE
-- Tastenkürzel-Übersicht im Hilfe-Dialog
-
 ---
 
-##.3.0] - 2026-06-10
+##1.3.0] - 2026-06-10
 
 ### Hinzugefügt
 - **Redo-Button** ("Wiederholen") als Gegenstück zum Undo
 - **Stern (`*`) im Fenstertitel** bei ungespeicherten Änderungen
 - Anzeige des **Dateinamens im Fenstertitel**
+- Eigenes Icon für die EXE
 
 ### Geändert
 - Undo/Redo **springt nicht mehr an den Dokumentanfang** – die Scroll-Position

@@ -1,0 +1,64 @@
+# === GitHub Actions Workflow: Build & Release ================================
+# Baut bei jedem Push eines Tags (v*) die EXE + den Installer und
+# veroeffentlicht beides automatisch als GitHub-Release.
+
+name: Build und Release
+
+# --- Ausloeser: Wenn ein Tag beginnend mit "v" gepusht wird ------------------
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:   # erlaubt manuelles Starten ueber die Actions-Oberflaeche
+# --- Berechtigungen: Release darf erstellt werden ----------------------------
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # Windows-Runner, da WPF und Inno Setup Windows benoetigen
+    runs-on: windows-latest
+
+    steps:
+      # 1) Repository auschecken
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      # 2) .NET 10 SDK einrichten
+      - name: .NET 10 SDK einrichten
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # 3) Abhaengigkeiten wiederherstellen
+      - name: Pakete wiederherstellen
+        run: dotnet restore
+
+      # 4) EXE bauen (eigenstaendige Single-File-EXE)
+      - name: EXE veroeffentlichen
+        run: >
+          dotnet publish -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -o publish
+
+      # 5) Inno Setup installieren (fuer den Installer)
+      - name: Inno Setup installieren
+        run: choco install innosetup -y
+
+      # 6) Installer bauen
+      - name: Installer erstellen
+        run: '& "C:\Users\fotop\AppData\Local\Programs\Inno Setup 6\ISCC.exe" installer.iss'
+
+      # 7) Beide Artefakte als Release veroeffentlichen
+      - name: Release erstellen
+        uses: softprops/action-gh-release@v2
+        with:
+          name: CodeBlock-Manager ${{ github.ref_name }}
+          # Inhalt der CHANGELOG.md als Release-Beschreibung
+          body_path: CHANGELOG.md
+          # Beta-Tags (z.B. v1.3.0-beta) automatisch als Pre-Release markieren
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+          files: |
+            publish/CodeBlockManager.exe
+            installer/CodeBlock-Manager-Setup-*.exe

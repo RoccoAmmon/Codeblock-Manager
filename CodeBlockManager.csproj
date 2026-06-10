@@ -18,6 +18,7 @@
   <ItemGroup>
     <!-- Syntax-Definition als eingebettete Ressource -->
     <EmbeddedResource Include="PowerShell.xshd" />
+    <Resource Include="CodeBlock-Manager.ico" />
   </ItemGroup>
 
 </Project>
