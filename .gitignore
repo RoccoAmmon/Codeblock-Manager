@@ -1,0 +1,36 @@
+# === .NET Build-Ausgaben =====================================================
+bin/
+obj/
+out/
+publish/
+
+# === Visual Studio / VS Code =================================================
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vscode/
+
+# === Rider / JetBrains =======================================================
+.idea/
+*.sln.iml
+
+# === NuGet ===================================================================
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+# === Projektspezifisch: Backups des CodeBlock-Managers =======================
+# Das Tool erstellt .bak-Dateien mit Zeitstempel - die gehoeren nicht ins Repo
+*.bak
+*.ps1.*.bak
+
+# === Logs ====================================================================
+*.log
+
+# === Betriebssystem-Dateien ==================================================
+Thumbs.db
+desktop.ini
+.DS_Store

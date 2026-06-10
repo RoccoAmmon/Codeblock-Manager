@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <AssemblyName>CodeBlockManager</AssemblyName>
+    <ApplicationIcon>CodeBlock-Manager.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- AvalonEdit: der WPF-Code-Editor aus SharpDevelop -->
+    <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
+    <PackageReference Include="System.Management.Automation" Version="7.6.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Syntax-Definition als eingebettete Ressource -->
+    <EmbeddedResource Include="PowerShell.xshd" />
+  </ItemGroup>
+
+</Project>

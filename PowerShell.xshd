@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<SyntaxDefinition name="PowerShell" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+    <Color name="Comment"  foreground="#6A9955" />
+    <Color name="String"   foreground="#CE9178" />
+    <Color name="Variable" foreground="#9CDCFE" />
+    <Color name="Keyword"  foreground="#569CD6" fontWeight="bold" />
+    <Color name="Cmdlet"   foreground="#DCDCAA" />
+
+    <RuleSet ignoreCase="true">
+        <!-- Kommentare -->
+        <Span color="Comment" begin="#" />
+        <Span color="Comment" multiline="true" begin="&lt;#" end="#&gt;" />
+
+        <!-- Strings -->
+        <Span color="String" begin="&quot;" end="&quot;" />
+        <Span color="String" begin="'" end="'" />
+
+        <!-- Variablen -->
+        <Rule color="Variable">\$[\w:]+</Rule>
+
+        <!-- Cmdlets (Verb-Noun) -->
+        <Rule color="Cmdlet">\b[A-Za-z]+\-[A-Za-z]+\b</Rule>
+
+        <!-- Schluesselwoerter -->
+        <Keywords color="Keyword">
+            <Word>function</Word>
+            <Word>param</Word>
+            <Word>begin</Word>
+            <Word>process</Word>
+            <Word>end</Word>
+            <Word>if</Word>
+            <Word>else</Word>
+            <Word>elseif</Word>
+            <Word>switch</Word>
+            <Word>foreach</Word>
+            <Word>for</Word>
+            <Word>while</Word>
+            <Word>do</Word>
+            <Word>until</Word>
+            <Word>try</Word>
+            <Word>catch</Word>
+            <Word>finally</Word>
+            <Word>return</Word>
+            <Word>break</Word>
+            <Word>continue</Word>
+            <Word>throw</Word>
+            <Word>in</Word>
+        </Keywords>
+    </RuleSet>
+</SyntaxDefinition>

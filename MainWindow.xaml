@@ -1,0 +1,81 @@
+<Window x:Class="CodeBlockManager.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:avalon="http://icsharpcode.net/sharpdevelop/avalonedit"
+        Title="CodeBlock-Manager (C#)" Height="760" Width="1000"
+        WindowStartupLocation="CenterScreen" Background="#1E1E1E">
+    <Window.Resources>
+        <Style x:Key="FlatBtn" TargetType="Button">
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="Background" Value="#3C4250"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="Padding" Value="14,0,14,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="b" CornerRadius="6" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="#505864"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="#21252B" Padding="20,12">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="CodeBlock-Manager" Foreground="#FFFFFF"
+                           FontFamily="Segoe UI Semibold" FontSize="20"/>
+                <TextBlock Text="Live-Funktionsaustausch mit AvalonEdit"
+                           Foreground="#A0A5AF" FontSize="12" Margin="16,8,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1" Background="#2D323A" Padding="16,10">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="BtnLaden"     Content="Skript laden" Style="{StaticResource FlatBtn}" Click="BtnLaden_Click"/>
+                    <Button x:Name="BtnSpeichern" Content="Speichern"    Style="{StaticResource FlatBtn}" Click="BtnSpeichern_Click"/>
+                    <Button x:Name="BtnUndo"      Content="Rueckgaengig" Style="{StaticResource FlatBtn}" Click="BtnUndo_Click"/>
+                    <Button x:Name="BtnRedo"      Content="Wiederholen"  Style="{StaticResource FlatBtn}" Click="BtnRedo_Click"/>
+                    <Button x:Name="BtnClear"     Content="Markierungen loeschen" Style="{StaticResource FlatBtn}" Click="BtnClear_Click"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <CheckBox x:Name="ChkLive" Content="Zwischenablage live ueberwachen"
+                              Foreground="#EBEBEB" IsChecked="True" VerticalAlignment="Center" Margin="0,0,24,0"/>
+                    <CheckBox x:Name="ChkAnhaengen" Content="Neue Funktionen anhaengen, falls nicht vorhanden"
+                              Foreground="#EBEBEB" IsChecked="True" VerticalAlignment="Center"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <avalon:TextEditor x:Name="Editor" Grid.Row="2"
+                           Background="#1E1E1E" Foreground="#DCDCDC"
+                           FontFamily="Cascadia Code, Consolas" FontSize="14"
+                           ShowLineNumbers="True"
+                           HorizontalScrollBarVisibility="Auto"
+                           VerticalScrollBarVisibility="Auto"/>
+
+        <Border Grid.Row="3" Background="#21252B" Padding="16,6">
+            <TextBlock x:Name="LblStatus" Text="Bereit - bitte Skript laden."
+                       Foreground="#78B4EB" FontSize="12"/>
+        </Border>
+    </Grid>
+</Window>
