@@ -48,7 +48,7 @@ jobs:
 
       # 6) Installer bauen
       - name: Installer erstellen
-        run: '& "C:\Users\fotop\AppData\Local\Programs\Inno Setup 6\ISCC.exe" installer.iss'
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe\ISCC.exe" installer.iss'
 
       # 7) Beide Artefakte als Release veroeffentlichen
       - name: Release erstellen
