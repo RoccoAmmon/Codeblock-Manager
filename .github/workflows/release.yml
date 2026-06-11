@@ -42,13 +42,18 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -o publish
 
-      # 5) Inno Setup installieren (fuer den Installer)
+      # 5) Inno Setup installieren
       - name: Inno Setup installieren
         run: choco install innosetup -y
 
-      # 6) Installer bauen
+      # 6) Installer bauen (maschinenweiter Pfad auf dem Runner)
       - name: Installer erstellen
-        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe\ISCC.exe" installer.iss'
+        shell: pwsh
+        run: |
+          $iscc = Get-ChildItem "C:\Program Files (x86)\Inno Setup 6\ISCC.exe","C:\Program Files\Inno Setup 6\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe nicht gefunden!" }
+          Write-Host "Nutze: $($iscc.FullName)"
+          & $iscc.FullName installer.iss
 
       # 7) Beide Artefakte als Release veroeffentlichen
       - name: Release erstellen
