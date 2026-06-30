@@ -60,8 +60,21 @@
                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                     <CheckBox x:Name="ChkLive" Content="Zwischenablage live ueberwachen"
                               Foreground="#EBEBEB" IsChecked="True" VerticalAlignment="Center" Margin="0,0,24,0"/>
-                    <CheckBox x:Name="ChkAnhaengen" Content="Neue Funktionen anhaengen, falls nicht vorhanden"
+                    <CheckBox x:Name="ChkAnhaengen" Content="Neue Bloecke anhaengen, falls nicht vorhanden"
                               Foreground="#EBEBEB" IsChecked="True" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <CheckBox x:Name="ChkVorschau" Content="Vorschau vor dem Ersetzen anzeigen"
+                              Foreground="#EBEBEB" IsChecked="True" VerticalAlignment="Center" Margin="0,0,24,0"/>
+                    <TextBlock Text="Markierung ausblenden nach:" Foreground="#EBEBEB"
+                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox x:Name="CmbMarkerTimeout" Width="90" VerticalAlignment="Center" SelectedIndex="3">
+                        <ComboBoxItem Content="Aus"  Tag="0"/>
+                        <ComboBoxItem Content="3 s"  Tag="3"/>
+                        <ComboBoxItem Content="5 s"  Tag="5"/>
+                        <ComboBoxItem Content="10 s" Tag="10"/>
+                        <ComboBoxItem Content="30 s" Tag="30"/>
+                    </ComboBox>
                 </StackPanel>
             </StackPanel>
         </Border>

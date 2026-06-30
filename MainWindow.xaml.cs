@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using System.Xml;
@@ -26,6 +27,7 @@ namespace CodeBlockManager
         private string _letzteClipboard = "";
         private bool _ungespeicherteAenderungen = false;   // Dirty-Flag
         private readonly DispatcherTimer _timer = new();
+        private readonly DispatcherTimer _markerTimer = new();   // blendet Markierungen aus
         private readonly BlockMarker _marker = new();
 
         public MainWindow()
@@ -48,6 +50,9 @@ namespace CodeBlockManager
                 _timer.Interval = TimeSpan.FromMilliseconds(1000);
                 _timer.Tick += Timer_Tick;
                 _timer.Start();
+
+                // Einmal-Timer: blendet die Block-Markierungen nach Ablauf aus
+                _markerTimer.Tick += MarkerTimer_Tick;
 
                 AktualisiereTitel();
                 WriteLog("Anwendung gestartet.");
@@ -125,27 +130,96 @@ namespace CodeBlockManager
             };
         }
 
-        // === Funktionsbereich per echtem PowerShell-Parser (AST) =============
-        private (int Start, int Laenge)? GetFunktionsBereichAst(string inhalt, string name)
+        // === Block-Erkennung (Funktion/Filter/Workflow, Klasse/Enum, Configuration) ==
+        private static bool IstBlockAst(Ast n) =>
+            n is FunctionDefinitionAst ||
+            n is TypeDefinitionAst ||
+            n is ConfigurationDefinitionAst;
+
+        // Name + Art eines Block-Knotens ermitteln
+        private static (string Name, string Art) BlockInfo(Ast n) => n switch
+        {
+            FunctionDefinitionAst f => (f.Name, f.IsFilter ? "Filter" : f.IsWorkflow ? "Workflow" : "Funktion"),
+            TypeDefinitionAst t     => (t.Name, t.IsEnum ? "Enum" : "Klasse"),
+            ConfigurationDefinitionAst c => ((c.InstanceName as StringConstantExpressionAst)?.Value ?? "Configuration", "Configuration"),
+            _ => ("", "")
+        };
+
+        // Zeilenanfang (Offset nach dem letzten Zeilenumbruch) zu einer Position
+        private static int ZeilenAnfang(string text, int pos)
+        {
+            int i = text.LastIndexOf('\n', Math.Max(0, Math.Min(pos, text.Length) - 1));
+            return i < 0 ? 0 : i + 1;
+        }
+
+        // Start eines Blocks rueckwaerts um direkt darueberstehende Kommentare erweitern
+        private static int ErweitereUmKommentar(string text, Token[] tokens, int blockStart)
+        {
+            int start = blockStart;
+            var kommentare = tokens
+                .Where(t => t.Kind == TokenKind.Comment && t.Extent.EndOffset <= blockStart)
+                .OrderByDescending(t => t.Extent.EndOffset);
+
+            foreach (var t in kommentare)
+            {
+                int e = t.Extent.EndOffset;
+                if (e > start) continue;
+                string zwischen = text.Substring(e, start - e);
+                if (zwischen.Trim().Length != 0) break;                 // anderer Code -> Ende
+                if (zwischen.Count(c => c == '\n') > 1) break;          // Leerzeile -> getrennt
+                start = t.Extent.StartOffset;                           // Kommentar einbeziehen
+            }
+            return start;
+        }
+
+        // Eingerueckten Block-Code auf eine Ziel-Einrueckung normalisieren
+        private static string PasseEinrueckungAn(string code, string zielEinrueckung)
+        {
+            var zeilen = code.Replace("\r\n", "\n").Split('\n');
+
+            int min = int.MaxValue;
+            foreach (var z in zeilen)
+            {
+                if (z.Trim().Length == 0) continue;
+                int i = 0;
+                while (i < z.Length && (z[i] == ' ' || z[i] == '\t')) i++;
+                min = Math.Min(min, i);
+            }
+            if (min == int.MaxValue) min = 0;
+
+            var sb = new StringBuilder();
+            for (int k = 0; k < zeilen.Length; k++)
+            {
+                string z = zeilen[k];
+                if (z.Trim().Length == 0) sb.Append("");
+                else sb.Append(zielEinrueckung + z.Substring(min));
+                if (k < zeilen.Length - 1) sb.Append("\r\n");
+            }
+            return sb.ToString();
+        }
+
+        // Bereich eines benannten Blocks im Text finden (inkl. Kommentar, ab Zeilenanfang)
+        private (int Start, int Ende, string Indent)? FindeBlockRegion(string text, string name)
         {
             try
             {
                 Token[] tokens;
-                ParseError[] errors;
-                ScriptBlockAst ast = Parser.ParseInput(inhalt, out tokens, out errors);
+                ScriptBlockAst ast = Parser.ParseInput(text, out tokens, out _);
 
-                var funktion = ast.FindAll(
-                    n => n is FunctionDefinitionAst fd &&
-                         string.Equals(fd.Name, name, StringComparison.OrdinalIgnoreCase),
+                var node = ast.FindAll(
+                    n => IstBlockAst(n) &&
+                         string.Equals(BlockInfo(n).Name, name, StringComparison.OrdinalIgnoreCase),
                     searchNestedScriptBlocks: true)
-                    .Cast<FunctionDefinitionAst>()
                     .FirstOrDefault();
 
-                if (funktion == null) return null;
+                if (node == null) return null;
 
-                int start  = funktion.Extent.StartOffset;
-                int laenge = funktion.Extent.EndOffset - funktion.Extent.StartOffset;
-                return (start, laenge);
+                int bStart = node.Extent.StartOffset;
+                int bEnd   = node.Extent.EndOffset;
+                int kStart = ErweitereUmKommentar(text, tokens, bStart);
+                int zStart = ZeilenAnfang(text, kStart);
+                string indent = text.Substring(zStart, kStart - zStart);
+                return (zStart, bEnd, indent);
             }
             catch (Exception ex)
             {
@@ -154,25 +228,26 @@ namespace CodeBlockManager
             }
         }
 
-        // === Alle Funktionen aus Clipboard per AST ermitteln =================
-        private List<(string Name, string Code)> GetAlleFunktionenAst(string codeText)
+        // === Alle Bloecke aus Clipboard per AST ermitteln (inkl. Kommentar) ==
+        private List<(string Name, string Code, string Art)> GetAlleBloeckeAst(string codeText)
         {
-            var ergebnis = new List<(string, string)>();
+            var ergebnis = new List<(string, string, string)>();
             try
             {
                 Token[] tokens;
-                ParseError[] errors;
-                ScriptBlockAst ast = Parser.ParseInput(codeText, out tokens, out errors);
+                ScriptBlockAst ast = Parser.ParseInput(codeText, out tokens, out _);
 
-                var funktionen = ast.FindAll(
-                    n => n is FunctionDefinitionAst,
-                    searchNestedScriptBlocks: false)
-                    .Cast<FunctionDefinitionAst>();
+                var knoten = ast.FindAll(IstBlockAst, searchNestedScriptBlocks: false);
 
-                foreach (var fn in funktionen)
+                foreach (var n in knoten)
                 {
-                    string code = fn.Extent.Text;
-                    ergebnis.Add((fn.Name, code));
+                    var (name, art) = BlockInfo(n);
+                    int bStart = n.Extent.StartOffset;
+                    int bEnd   = n.Extent.EndOffset;
+                    int kStart = ErweitereUmKommentar(codeText, tokens, bStart);
+                    int zStart = ZeilenAnfang(codeText, kStart);
+                    string code = codeText.Substring(zStart, bEnd - zStart);
+                    ergebnis.Add((name, code, art));
                 }
             }
             catch (Exception ex)
@@ -182,69 +257,91 @@ namespace CodeBlockManager
             return ergebnis;
         }
 
-        // === Funktionen ersetzen / anhaengen (per AST) =======================
+        // === Datenklasse fuer eine geplante Aenderung (Vorschau) =============
+        private class Aenderung
+        {
+            public string Name = "";
+            public string Art = "";
+            public string Aktion = "";   // "Ersetzt" oder "Angehaengt"
+            public string Alt = "";
+            public string Neu = "";
+        }
+
+        // === Bloecke ersetzen / anhaengen (per AST, mit Vorschau) ============
         private void InvokeFunktionsErsetzung(string clipText)
         {
             try
             {
-                var funktionen = GetAlleFunktionenAst(clipText);
-                if (funktionen.Count == 0) return;
+                var bloecke = GetAlleBloeckeAst(clipText);
+                if (bloecke.Count == 0) return;
 
-                string inhalt = Editor.Text;
-                var ersetzt = new List<string>();
-                var angehaengt = new List<string>();
+                // 1) Aenderungen auf einer Arbeitskopie berechnen (noch nicht anwenden)
+                string arbeit = Editor.Text;
+                var aenderungen = new List<Aenderung>();
                 var uebersprungen = new List<string>();
 
-                foreach (var fn in funktionen)
+                foreach (var b in bloecke)
                 {
-                    var bereich = GetFunktionsBereichAst(inhalt, fn.Name);
-                    if (bereich != null)
+                    var region = FindeBlockRegion(arbeit, b.Name);
+                    if (region != null)
                     {
-                        inhalt = inhalt.Substring(0, bereich.Value.Start)
-                               + fn.Code
-                               + inhalt.Substring(bereich.Value.Start + bereich.Value.Laenge);
-                        ersetzt.Add(fn.Name);
-                        WriteLog($"Funktion '{fn.Name}' ersetzt (AST).", "SUCCESS");
+                        string alt = arbeit.Substring(region.Value.Start,
+                                                      region.Value.Ende - region.Value.Start);
+                        string neu = PasseEinrueckungAn(b.Code, region.Value.Indent);
+                        arbeit = arbeit.Substring(0, region.Value.Start)
+                               + neu
+                               + arbeit.Substring(region.Value.Ende);
+                        aenderungen.Add(new Aenderung { Name = b.Name, Art = b.Art, Aktion = "Ersetzt", Alt = alt, Neu = neu });
+                        WriteLog($"{b.Art} '{b.Name}' ersetzt (AST).", "SUCCESS");
                     }
                     else if (ChkAnhaengen.IsChecked == true)
                     {
-                        inhalt = inhalt.TrimEnd() + "\r\n\r\n" + fn.Code + "\r\n";
-                        angehaengt.Add(fn.Name);
-                        WriteLog($"Funktion '{fn.Name}' angehaengt (AST).", "INFO");
+                        string neu = PasseEinrueckungAn(b.Code, "");
+                        arbeit = arbeit.TrimEnd() + "\r\n\r\n" + neu + "\r\n";
+                        aenderungen.Add(new Aenderung { Name = b.Name, Art = b.Art, Aktion = "Angehaengt", Alt = "", Neu = neu });
+                        WriteLog($"{b.Art} '{b.Name}' angehaengt (AST).", "INFO");
                     }
                     else
                     {
-                        uebersprungen.Add(fn.Name);
-                        WriteLog($"Funktion '{fn.Name}' uebersprungen.", "WARN");
+                        uebersprungen.Add(b.Name);
+                        WriteLog($"{b.Art} '{b.Name}' uebersprungen.", "WARN");
                     }
                 }
 
-                Editor.Document.Replace(0, Editor.Document.TextLength, inhalt);   // setzt Text, behält Undo
+                if (aenderungen.Count == 0)
+                {
+                    SetStatus("Keine passenden Bloecke - nichts geaendert.", "Warnung");
+                    return;
+                }
 
-                // Markierungen setzen (gelb = ersetzt, gruen = angehaengt)
+                // 2) Optionale Vorschau anzeigen
+                if (ChkVorschau.IsChecked == true && !ZeigeVorschau(aenderungen))
+                {
+                    SetStatus("Ersetzung abgebrochen (Vorschau verworfen).", "Info");
+                    WriteLog("Ersetzung per Vorschau verworfen.");
+                    return;
+                }
+
+                // 3) Anwenden (eine Aktion fuer Undo)
+                Editor.Document.Replace(0, Editor.Document.TextLength, arbeit);
+
+                // 4) Markierungen setzen (gelb = ersetzt, gruen = angehaengt)
                 _marker.Bereiche.Clear();
-                int? erstesOffset = null;   // erste geaenderte Stelle merken (zum Hinscrollen)
-                foreach (var name in ersetzt)
+                int? erstesOffset = null;
+                foreach (var a in aenderungen)
                 {
-                    var b = GetFunktionsBereichAst(inhalt, name);
-                    if (b != null)
+                    var r = FindeBlockRegion(arbeit, a.Name);
+                    if (r != null)
                     {
-                        _marker.Bereiche.Add((b.Value.Start, b.Value.Laenge, true));
-                        erstesOffset ??= b.Value.Start;
-                    }
-                }
-                foreach (var name in angehaengt)
-                {
-                    var b = GetFunktionsBereichAst(inhalt, name);
-                    if (b != null)
-                    {
-                        _marker.Bereiche.Add((b.Value.Start, b.Value.Laenge, false));
-                        erstesOffset ??= b.Value.Start;
+                        bool ersetzt = a.Aktion == "Ersetzt";
+                        _marker.Bereiche.Add((r.Value.Start, r.Value.Ende - r.Value.Start, ersetzt));
+                        erstesOffset ??= r.Value.Start;
                     }
                 }
                 Editor.TextArea.TextView.InvalidateLayer(KnownLayer.Background);
+                StarteMarkerTimer();
 
-                // Zur ersten geaenderten Funktion springen und sichtbar machen
+                // 5) Zur ersten geaenderten Stelle springen
                 if (erstesOffset.HasValue)
                 {
                     int offset = Math.Min(erstesOffset.Value, Editor.Document.TextLength);
@@ -254,20 +351,119 @@ namespace CodeBlockManager
                     Editor.TextArea.Caret.BringCaretToView();
                 }
 
-                // Statusmeldung
+                // 6) Statusmeldung
+                var ersetztNamen   = aenderungen.Where(a => a.Aktion == "Ersetzt").Select(a => a.Name).ToList();
+                var angehaengtNamen = aenderungen.Where(a => a.Aktion == "Angehaengt").Select(a => a.Name).ToList();
                 var teile = new List<string>();
-                if (ersetzt.Count > 0)        teile.Add("Ersetzt: " + string.Join(", ", ersetzt));
-                if (angehaengt.Count > 0)      teile.Add("Angehaengt: " + string.Join(", ", angehaengt));
-                if (uebersprungen.Count > 0)   teile.Add("Uebersprungen: " + string.Join(", ", uebersprungen));
-                string meldung = string.Join("   |   ", teile);
+                if (ersetztNamen.Count > 0)    teile.Add("Ersetzt: " + string.Join(", ", ersetztNamen));
+                if (angehaengtNamen.Count > 0)  teile.Add("Angehaengt: " + string.Join(", ", angehaengtNamen));
+                if (uebersprungen.Count > 0)    teile.Add("Uebersprungen: " + string.Join(", ", uebersprungen));
 
-                SetStatus(meldung, uebersprungen.Count > 0 ? "Warnung" : "Erfolg");
+                SetStatus(string.Join("   |   ", teile), uebersprungen.Count > 0 ? "Warnung" : "Erfolg");
             }
             catch (Exception ex)
             {
                 WriteLog("FEHLER bei Ersetzung: " + ex.Message, "ERROR");
                 SetStatus("Fehler bei Ersetzung - siehe Log.", "Fehler");
             }
+        }
+
+        // === Vorschau-Fenster: Diff anzeigen, true = uebernehmen =============
+        private bool ZeigeVorschau(List<Aenderung> aenderungen)
+        {
+            var sb = new StringBuilder();
+            foreach (var a in aenderungen)
+            {
+                sb.AppendLine($"=== {a.Art}: {a.Name}   [{a.Aktion}] ===");
+                if (a.Aktion == "Ersetzt")
+                {
+                    sb.AppendLine("--- ALT ---");
+                    sb.AppendLine(a.Alt);
+                }
+                sb.AppendLine("+++ NEU +++");
+                sb.AppendLine(a.Neu);
+                sb.AppendLine();
+            }
+
+            var dunkel = (Brush)new BrushConverter().ConvertFrom("#1E1E1E")!;
+            var hell   = (Brush)new BrushConverter().ConvertFrom("#DCDCDC")!;
+
+            var win = new Window
+            {
+                Title = "Vorschau der Aenderungen",
+                Width = 900,
+                Height = 650,
+                Owner = this,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Background = dunkel
+            };
+
+            var grid = new Grid();
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var tb = new TextBox
+            {
+                Text = sb.ToString(),
+                IsReadOnly = true,
+                FontFamily = new FontFamily("Cascadia Code, Consolas"),
+                FontSize = 13,
+                Background = dunkel,
+                Foreground = hell,
+                BorderThickness = new Thickness(0),
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.NoWrap,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
+            Grid.SetRow(tb, 0);
+
+            var panel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(12)
+            };
+            var btnOk = new Button { Content = "Uebernehmen", Width = 130, Height = 32, Margin = new Thickness(0, 0, 8, 0), IsDefault = true };
+            var btnAbbruch = new Button { Content = "Verwerfen", Width = 130, Height = 32, IsCancel = true };
+
+            bool ergebnis = false;
+            btnOk.Click += (_, __) => { ergebnis = true; win.Close(); };
+            btnAbbruch.Click += (_, __) => { ergebnis = false; win.Close(); };
+            panel.Children.Add(btnOk);
+            panel.Children.Add(btnAbbruch);
+            Grid.SetRow(panel, 1);
+
+            grid.Children.Add(tb);
+            grid.Children.Add(panel);
+            win.Content = grid;
+            win.ShowDialog();
+            return ergebnis;
+        }
+
+        // === Marker-Timer: blendet Markierungen nach Ablauf aus ==============
+        private void StarteMarkerTimer()
+        {
+            _markerTimer.Stop();
+            int sekunden = GetMarkerSekunden();
+            if (sekunden <= 0) return;   // "Aus"
+            _markerTimer.Interval = TimeSpan.FromSeconds(sekunden);
+            _markerTimer.Start();
+        }
+
+        private int GetMarkerSekunden()
+        {
+            if (CmbMarkerTimeout.SelectedItem is ComboBoxItem item &&
+                item.Tag is string tag && int.TryParse(tag, out int v))
+                return v;
+            return 0;
+        }
+
+        private void MarkerTimer_Tick(object? sender, EventArgs e)
+        {
+            _markerTimer.Stop();
+            _marker.Bereiche.Clear();
+            Editor.TextArea.TextView.InvalidateLayer(KnownLayer.Background);
         }
 
         // === Event: Skript laden =============================================
@@ -423,7 +619,7 @@ namespace CodeBlockManager
                     if (!string.IsNullOrWhiteSpace(clip) && clip != _letzteClipboard)
                     {
                         _letzteClipboard = clip;
-                        if (Regex.IsMatch(clip, @"(?im)^\s*function\s+"))
+                        if (Regex.IsMatch(clip, @"(?im)^\s*(function|filter|workflow|class|enum|configuration)\s+"))
                             InvokeFunktionsErsetzung(clip);
                     }
                 }
@@ -475,6 +671,7 @@ namespace CodeBlockManager
                 if (!e.Cancel)
                 {
                     _timer.Stop();
+                    _markerTimer.Stop();
                     WriteLog("Anwendung geschlossen.");
                 }
             }

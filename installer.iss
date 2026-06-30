@@ -1,12 +1,12 @@
 ; === CodeBlock-Manager Installer-Skript =====================================
 [Setup]
 AppName=CodeBlock-Manager
-AppVersion=1.4.0
+AppVersion=1.5.0
 AppPublisher=Rocco Ammon
 DefaultDirName={autopf}\CodeBlock-Manager
 DefaultGroupName=CodeBlock-Manager
 OutputDir=installer
-OutputBaseFilename=CodeBlock-Manager-Setup-v1.4.0
+OutputBaseFilename=CodeBlock-Manager-Setup-v1.5.0
 Compression=lzma2
 SolidCompression=yes
 ; Eigenes Icon fuer den Installer (Sie haben ja schon eins)

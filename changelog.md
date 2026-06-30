@@ -11,6 +11,24 @@ und dieses Projekt folgt der [Semantischen Versionierung](https://semver.org/lan
 
 ---
 
+## [1.5.0] - 2026-06-30
+
+### Hinzugefügt
+- **Diff-Vorschau vor dem Ersetzen**: Vor dem Anwenden zeigt ein Fenster die
+  geplanten Änderungen (Alt ↔ Neu) mit „Uebernehmen/Verwerfen“. Abschaltbar
+  über die neue Checkbox „Vorschau vor dem Ersetzen anzeigen“.
+- **Kommentarblöcke werden mit ersetzt**: Direkt über einem Block stehende
+  Kommentare bzw. Comment-Based-Help (`<# ... #>`) werden beim Austausch
+  einbezogen – keine doppelten/veralteten Hilfetexte mehr.
+- **Automatische Einrückungsanpassung**: Eingefügter Code wird auf die
+  Einrückung der Zielstelle normalisiert.
+- **Markierungen automatisch ausblenden**: Neue Auswahl (Aus / 3 / 5 / 10 / 30 s)
+  blendet die farbigen Markierungen nach Ablauf wieder aus.
+- **Mehr Block-Typen**: Neben Funktionen werden nun auch `filter`, `workflow`,
+  `class`, `enum` und `configuration` erkannt und ausgetauscht.
+
+---
+
 ## [1.4.0] - 2026-06-30
 
 ### Hinzugefügt
