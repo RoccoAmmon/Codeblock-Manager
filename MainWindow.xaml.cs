@@ -223,17 +223,36 @@ namespace CodeBlockManager
 
                 // Markierungen setzen (gelb = ersetzt, gruen = angehaengt)
                 _marker.Bereiche.Clear();
+                int? erstesOffset = null;   // erste geaenderte Stelle merken (zum Hinscrollen)
                 foreach (var name in ersetzt)
                 {
                     var b = GetFunktionsBereichAst(inhalt, name);
-                    if (b != null) _marker.Bereiche.Add((b.Value.Start, b.Value.Laenge, true));
+                    if (b != null)
+                    {
+                        _marker.Bereiche.Add((b.Value.Start, b.Value.Laenge, true));
+                        erstesOffset ??= b.Value.Start;
+                    }
                 }
                 foreach (var name in angehaengt)
                 {
                     var b = GetFunktionsBereichAst(inhalt, name);
-                    if (b != null) _marker.Bereiche.Add((b.Value.Start, b.Value.Laenge, false));
+                    if (b != null)
+                    {
+                        _marker.Bereiche.Add((b.Value.Start, b.Value.Laenge, false));
+                        erstesOffset ??= b.Value.Start;
+                    }
                 }
                 Editor.TextArea.TextView.InvalidateLayer(KnownLayer.Background);
+
+                // Zur ersten geaenderten Funktion springen und sichtbar machen
+                if (erstesOffset.HasValue)
+                {
+                    int offset = Math.Min(erstesOffset.Value, Editor.Document.TextLength);
+                    var pos = Editor.Document.GetLocation(offset);
+                    Editor.CaretOffset = offset;
+                    Editor.ScrollToLine(pos.Line);
+                    Editor.TextArea.Caret.BringCaretToView();
+                }
 
                 // Statusmeldung
                 var teile = new List<string>();

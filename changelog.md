@@ -11,6 +11,16 @@ und dieses Projekt folgt der [Semantischen Versionierung](https://semver.org/lan
 
 ---
 
+## [1.4.0] - 2026-06-30
+
+### Hinzugefügt
+- **Automatisches Anspringen der geänderten Stelle**: Nach dem Ersetzen/Anhängen
+  einer Funktion springt der Editor zur ersten geänderten Funktion (Cursor wird
+  gesetzt, Zeile per `ScrollToLine`/`BringCaretToView` sichtbar gemacht). Kein
+  manuelles Suchen der ausgetauschten Stelle mehr nötig.
+
+---
+
 ##1.3.0] - 2026-06-10
 
 ### Hinzugefügt
