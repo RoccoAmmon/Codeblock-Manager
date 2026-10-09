@@ -5,7 +5,7 @@ out/
 publish/
 
 # === Installer / Inno Setup ==================================================
-# Die fertigen Setup-Dateien gehoeren ins GitHub-Release, nicht ins Repo
+# Die fertigen Setup-Dateien gehoeren ins GitLab-Release, nicht ins Repo
 installer/
 *.exe
 

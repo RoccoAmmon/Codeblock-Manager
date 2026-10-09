@@ -114,4 +114,4 @@ und dieses Projekt folgt der [Semantischen Versionierung](https://semver.org/lan
 
 ---
 
-[Unveröffentlicht]: https://github.com/RoccoAmmon/Codeblock-Manager/compare/v1.3.0...HEAD: https://github.com/RoccoAmmon/Codeblock-Manager/compare/v1.2.0...v1.30]: https://github.com/RoccoAmmon/Codeblock-Manager/compare/v1.1.0...v11.0]: https://github.com/RoccoAmmon/Codeblock-Manager/compare/v1.0.0...1.0.0]: https://github.com/RoccoAmmon/Codeblock-Manager/releases/tag/v1.0.0
+[Unveröffentlicht]: https://gitlab.com/RoccoAmmon/Codeblock-Manager/-/compare/v1.3.0...HEAD: https://gitlab.com/RoccoAmmon/Codeblock-Manager/-/compare/v1.2.0...v1.30]: https://gitlab.com/RoccoAmmon/Codeblock-Manager/-/compare/v1.1.0...v11.0]: https://gitlab.com/RoccoAmmon/Codeblock-Manager/-/compare/v1.0.0...1.0.0]: https://gitlab.com/RoccoAmmon/Codeblock-Manager/-/releases/v1.0.0
